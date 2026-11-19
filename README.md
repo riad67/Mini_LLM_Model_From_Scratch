@@ -2,11 +2,17 @@
 
 A 28,657-parameter word-level language model built in PyTorch. Train it on 11 short sentences about Dhaka, Eid, cricket, and everyday life, then give it a few words and watch it sample a continuation one token at a time.
 
-## Demo
+LLM stands for large language model. It’s a neural network trained on large amounts of text to learn patterns in language. A GPT-style LLM generates text one token at a time. A token can be a word, part of a word, or punctuation.
 
-[![Watch Mini GPT train in VS Code and generate its first words.](assets/demo-preview.png)](assets/demo.mp4)
+Your Mini GPT demonstrates this process on a small scale. When you enter my name is, the model uses attention to relate those words to each other, then calculates a probability for each possible next word. It might sample Riad, append it to the prompt, and use my name is Riad to predict the next word.
 
-**[Watch the training run](assets/demo.mp4)** · 1 min 38 sec · 1.3× speed · [Download MP4 (9.9 MB)](https://raw.githubusercontent.com/riad67/MIni_LLM_Model_From_Scratch/main/assets/demo.mp4)
+The diagram follows that example through your model’s embeddings, two Transformer blocks, and next-word prediction.
+<img width="1774" height="887" alt="image" src="https://github.com/user-attachments/assets/d9c84cbf-e506-4286-92e0-5c2168d517b9" />
+
+
+## Demo Video ( training and testing )
+
+https://github.com/user-attachments/assets/db465505-6429-4bd0-a45c-5444043954be
 
 Follow the original VS Code session from the training loop to the generated text. The current script uses the same corpus and prints a shorter training log.
 
@@ -63,4 +69,3 @@ With only 11 training sentences, the model frequently repeats phrases it has see
 | [demo.py](demo.py) | Edit `CORPUS`, follow a training batch, or step through `TinyGPT.generate()`. |
 | [transformer_blocks.py](transformer_blocks.py) | Inspect the causal mask, scaled dot-product attention, and residual connections. |
 
-Adapted from [Code With Aarohi’s Mini GPT tutorial repository](https://github.com/codewithaarohi/Build-a-Mini-GPT-Model-From-Scratch-Using-PyTorch).
