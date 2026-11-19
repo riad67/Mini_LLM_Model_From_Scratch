@@ -4,11 +4,17 @@ A 28,657-parameter word-level language model built in PyTorch. Train it on 11 sh
 
 ## Demo
 
-[![Terminal showing training loss and a generated continuation. Open the full demo video.](assets/demo-preview.png)](assets/demo.mp4)
+[![Watch Mini GPT train in VS Code and generate its first words.](assets/demo-preview.png)](assets/demo.mp4)
 
-**[Watch the original demo](assets/demo.mp4)** · 2 min 7 sec · [Open the MP4 directly](https://raw.githubusercontent.com/riad67/MIni_LLM_Model_From_Scratch/main/assets/demo.mp4)
+**[Watch the training run](assets/demo.mp4)** · 1 min 38 sec · 1.3× speed · [Download MP4 (9.9 MB)](https://raw.githubusercontent.com/riad67/MIni_LLM_Model_From_Scratch/main/assets/demo.mp4)
 
-The recording shows the original training script in VS Code. The current version uses the same corpus and prints a shorter training log.
+Follow the original VS Code session from the training loop to the generated text. The current script uses the same corpus and prints a shorter training log.
+
+## Images
+
+[![VS Code showing the word-to-index mapping above the terminal, with training losses and generated text below.](assets/training-run.png)](assets/training-run.png)
+
+In this run, the model continues from `my` to `favorite festival`. The `<END>` token marks the sentence boundary before the sampler continues with `new year brings lights and sweets`.
 
 ## Run it locally
 
