@@ -4,7 +4,7 @@ A 28,657-parameter word-level language model built in PyTorch. Train it on 11 sh
 
 LLM stands for large language model. It’s a neural network trained on large amounts of text to learn patterns in language. A GPT-style LLM generates text one token at a time. A token can be a word, part of a word, or punctuation.
 
-Your Mini GPT demonstrates this process on a small scale. When you enter my name is, the model uses attention to relate those words to each other, then calculates a probability for each possible next word. It might sample Riad, append it to the prompt, and use my name is Riad to predict the next word.
+My Mini GPT demonstrates this process on a small scale. When I enter my name is, the model uses attention to relate those words to each other, then calculates a probability for each possible next word. It might sample Riad, append it to the prompt, and use my name is Riad to predict the next word.
 
 The diagram follows that example through your model’s embeddings, two Transformer blocks, and next-word prediction.
 <img width="1774" height="887" alt="image" src="https://github.com/user-attachments/assets/d9c84cbf-e506-4286-92e0-5c2168d517b9" />
