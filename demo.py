@@ -1,119 +1,111 @@
+"""Train a word-level causal language model and sample a continuation."""
+
+import argparse
+
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import random
+from torch import nn
+from torch.nn import functional as F
 
 from transformer_blocks import Block
 
 
-print("Torch version:", torch.__version__)
-print("CUDA available:", torch.cuda.is_available())
-print("GPU name:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "None")
-
-corpus = [
+CORPUS = (
     "hello friends how are you",
-    "the tea is very hot",
-    "my name is Aarohi",
-    "the roads of Delhi are busy",
-    "it is raining in Mumbai",
+    "my name is Riad Hossain",
+    "i love traveling and exploring new places",
+    "the weather is very cold today",
+    "the roads of Dhaka are busy",
+    "it is raining in Kishoreganj",
     "the train is late again",
     "i love eating samosas and drinking tea",
-    "holi is my favorite festival",
-    "diwali brings lights and sweets",
-    "india won the cricket match"
-]
-
-corpus = [s + " <END>" for s in corpus]
-text = " ".join(corpus)
-print (text)
-
-words = list(set(text.split()))
-print(words)
-
-vocab_size = len(words)
-print(vocab_size)
-
-word2idx = {w: i for i, w in enumerate(words)}
-print("word2idx : ", word2idx)
-
-idx2word = {i: w for w, i in word2idx.items()} 
-print("idx2word : ", idx2word) 
-
-data = torch.tensor([word2idx[w] for w in text.split()], dtype=torch.long)
-print("data : ", data) 
-print(len(data))
-
-block_size = 6 
-embedding_dim = 32
-n_heads = 2  
-n_layers = 2 
-lr = 1e-3 
-epochs = 1500  
+    "eid is my favorite festival",
+    "new year brings lights and sweets",
+    "bangladesh won the cricket match",
+)
 
 
-def get_batch(batch_size=16):
-    ix = torch.randint(len(data) - block_size, (batch_size,))  
-    x = torch.stack([data[i:i+block_size] for i in ix])  
-    y = torch.stack([data[i+1:i+block_size+1] for i in ix]) 
-    return x, y
+def encode_corpus(sentences):
+    tokens = [word for sentence in sentences for word in (*sentence.split(), "<END>")]
+    vocabulary = sorted(set(tokens))
+    word_to_id = {word: i for i, word in enumerate(vocabulary)}
+    data = torch.tensor([word_to_id[word] for word in tokens], dtype=torch.long)
+    return data, vocabulary, word_to_id
 
 
+def get_batch(data, block_size, batch_size=16):
+    starts = torch.randint(len(data) - block_size, (batch_size, 1))
+    positions = starts + torch.arange(block_size)
+    return data[positions], data[positions + 1]
 
 
 class TinyGPT(nn.Module):
-    def __init__(self):
+    def __init__(self, vocab_size, block_size=6, embedding_dim=32, n_heads=2, n_layers=2):
         super().__init__()
-        self.token_embedding = nn.Embedding(vocab_size, embedding_dim) 
-
-        self.position_embedding = nn.Embedding(block_size, embedding_dim) 
-        self.blocks = nn.Sequential(*[Block(embedding_dim, block_size, n_heads) for _ in range(n_layers)]) 
-
+        self.block_size = block_size
+        self.token_embedding = nn.Embedding(vocab_size, embedding_dim)
+        self.position_embedding = nn.Embedding(block_size, embedding_dim)
+        self.blocks = nn.Sequential(
+            *(Block(embedding_dim, block_size, n_heads) for _ in range(n_layers))
+        )
         self.ln_f = nn.LayerNorm(embedding_dim)
-        self.head = nn.Linear(embedding_dim, vocab_size) 
+        self.head = nn.Linear(embedding_dim, vocab_size)
 
     def forward(self, idx, targets=None):
-        B, T = idx.shape 
-        tok_emb = self.token_embedding(idx) 
-        
-        pos_emb = self.position_embedding(torch.arange(T, device=idx.device))
-        x = tok_emb + pos_emb  
-        x = self.blocks(x) 
-        x = self.ln_f(x)
-        logits = self.head(x) 
+        positions = torch.arange(idx.size(1), device=idx.device)
+        x = self.token_embedding(idx) + self.position_embedding(positions)
+        logits = self.head(self.ln_f(self.blocks(x)))
         loss = None
         if targets is not None:
-            B, T, C = logits.shape 
-            loss = F.cross_entropy(logits.view(B*T, C), targets.view(B*T)) 
+            loss = F.cross_entropy(logits.flatten(0, 1), targets.flatten())
         return logits, loss
 
+    @torch.no_grad()
     def generate(self, idx, max_new_tokens):
         for _ in range(max_new_tokens):
-            idx_cond = idx[:, -block_size:]
-            logits, _ = self(idx_cond)
-            logits = logits[:, -1, :]
-            probs = F.softmax(logits, dim=-1)
-            next_idx = torch.multinomial(probs, 1)
-            idx = torch.cat((idx, next_idx), dim=1)
+            logits, _ = self(idx[:, -self.block_size :])
+            probabilities = F.softmax(logits[:, -1], dim=-1)
+            next_id = torch.multinomial(probabilities, num_samples=1)
+            idx = torch.cat((idx, next_id), dim=1)
         return idx
 
 
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--steps", type=int, default=1500, help="training updates (default: 1500)")
+    parser.add_argument("--prompt", default="my", help="case-sensitive words from the corpus")
+    parser.add_argument("--tokens", type=int, default=15, help="words to sample (default: 15)")
+    parser.add_argument("--seed", type=int, default=42, help="random seed (default: 42)")
+    args = parser.parse_args()
 
-model = TinyGPT()
-optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
+    data, vocabulary, word_to_id = encode_corpus(CORPUS)
+    prompt = args.prompt.split()
+    if args.steps < 1 or args.tokens < 0:
+        parser.error("--steps must be positive and --tokens must be nonnegative")
+    if not prompt or any(word not in word_to_id for word in prompt):
+        parser.error("choose prompt words from the vocabulary: " + " ".join(vocabulary))
 
-for step in range(epochs):
-    xb, yb = get_batch() 
-    logits, loss = model(xb, yb)
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
-    if step % 300 == 0:
-        print(f"Step {step}, loss={loss.item():.4f}")
+    # These small matrix operations run efficiently on a single CPU thread.
+    torch.set_num_threads(1)
+    torch.manual_seed(args.seed)
+    model = TinyGPT(len(vocabulary))
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+    print(f"{len(CORPUS)} sentences | {len(data)} tokens | {len(vocabulary)} unique tokens")
+    print(f"{sum(p.numel() for p in model.parameters()):,} parameters | CPU | seed {args.seed}")
+    for step in range(1, args.steps + 1):
+        inputs, targets = get_batch(data, model.block_size)
+        _, loss = model(inputs, targets)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        if step == 1 or step % 300 == 0 or step == args.steps:
+            print(f"Step {step:>4}  loss {loss.item():.4f}")
+
+    model.eval()
+    context = torch.tensor([[word_to_id[word] for word in prompt]])
+    output = model.generate(context, args.tokens)
+    print("\nGenerated text")
+    print(" ".join(vocabulary[i] for i in output[0].tolist()))
 
 
-
-context = torch.tensor([[word2idx["hello"]]], dtype=torch.long)
-out = model.generate(context, max_new_tokens=15)
-
-print("\nGenerated text:\n")
-print(" ".join(idx2word[int(i)] for i in out[0]))
+if __name__ == "__main__":
+    main()
